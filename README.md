@@ -17,12 +17,19 @@ Tudo salvo em banco de dados real na nuvem.
 Funcionalidades:
 
 Adicionar tarefas com categorização automática por IA;
+
 Estimativa de tempo gerada automaticamente;
+
 Marcar tarefas como concluídas;
+
 Deletar tarefas;
+
 Filtrar tarefas por categoria;
+
 Barra de progresso mostrando % de conclusão;
+
 Dados persistidos em banco de dados na nuvem;
+
 Layout responsivo para mobile.
 
 -----------------------------------------------------------------------------------------------------------------------------------
@@ -30,7 +37,11 @@ Layout responsivo para mobile.
 Tecnologias utilizadas:
 
 Next.js 14: Framework React com App Router e API Routes;
+
 React: Interface do usuário com hooks (useState, useEffect);
+
 Supabase: Banco de dados PostgreSQL na nuvem;
+
 Groq + LLaMA 3.1: IA para categorização e estimativa de tempo;
+
 CSS Modules: Estilização com escopo isolado por componente.

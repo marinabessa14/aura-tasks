@@ -1,65 +1,233 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import styles from './page.module.css'
+
+// Dicionário que define emoji e cores para cada categoria
+
+const CATEGORIAS: Record<string, { emoji: string; cor: string; bg: string }> = {
+  Trabalho:  { emoji: '💼', cor: '#185FA5', bg: '#E6F1FB' },
+  Estudos:   { emoji: '📚', cor: '#0F6E56', bg: '#E1F5EE' },
+  Saúde:     { emoji: '🏃', cor: '#993556', bg: '#FBEAF0' },
+  Pessoal:   { emoji: '🙂', cor: '#3C3489', bg: '#EEEDFE' },
+  Finanças:  { emoji: '💰', cor: '#3B6D11', bg: '#EAF3DE' },
+  Casa:      { emoji: '🏠', cor: '#854F0B', bg: '#FAEEDA' },
+  Lazer:     { emoji: '🎮', cor: '#993C1D', bg: '#FAECE7' },
+  Outros:    { emoji: '📌', cor: '#5F5E5A', bg: '#F1EFE8' },
+}
+
+// Define o formato de uma tarefa (TypeScript)
+interface Tarefa {
+  id: number
+  titulo: string
+  categoria: string
+  tempo_estimado: string
+  concluida: boolean
+}
 
 export default function Home() {
+  const [titulo, setTitulo] = useState('')
+  const [tarefas, setTarefas] = useState<Tarefa[]>([])
+  const [loading, setLoading] = useState(false)
+  const [carregando, setCarregando] = useState(true)
+  const [filtro, setFiltro] = useState('Todas')
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    buscarTarefas()
+  }, [])
+
+  // Busca todas as tarefas do Supabase e atualiza o estado
+
+  async function buscarTarefas() {
+    setCarregando(true)
+    const { data, error } = await supabase
+      .from('tarefas')
+      .select('*')
+      .order('id', { ascending: false })
+
+    if (error) {
+      console.error('Erro ao buscar tarefas:', error)
+    } else {
+      setTarefas(data || [])
+    }
+    setCarregando(false)
+  }
+
+   // Fluxo principal: IA → Supabase → Atualiza tela
+
+  async function adicionarTarefa() {
+    if (!titulo.trim()) {
+      setErro('Digite o título da tarefa antes de adicionar.')
+      return
+    }
+    setErro('')
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: titulo.trim() }),
+      })
+      const { categoria, tempo_estimado } = await res.json()
+
+      const { error } = await supabase.from('tarefas').insert({
+        titulo: titulo.trim(),
+        categoria: categoria || 'Outros',
+        tempo_estimado: tempo_estimado || 'Não estimado',
+        concluida: false,
+      })
+
+      if (error) throw error
+
+      setTitulo('')
+      await buscarTarefas()
+    } catch (err) {
+      console.error('Erro ao adicionar tarefa:', err)
+      setErro('Erro ao adicionar tarefa. Tente novamente.')
+    }
+
+    setLoading(false)
+  }
+
+   // Alterna entre concluída e não concluída
+
+  async function toggleConcluida(id: number, concluida: boolean) {
+    await supabase
+      .from('tarefas')
+      .update({ concluida: !concluida })
+      .eq('id', id)
+    await buscarTarefas()
+  }
+
+    // Remove a tarefa do banco de dados
+
+  async function deletarTarefa(id: number) {
+    await supabase.from('tarefas').delete().eq('id', id)
+    await buscarTarefas()
+  }
+
+  const tarefasFiltradas =
+    filtro === 'Todas' ? tarefas : tarefas.filter(t => t.categoria === filtro)
+
+  const categoriasPresentes = ['Todas', ...new Set(tarefas.map(t => t.categoria).filter(Boolean))]
+
+  const total = tarefas.length
+  const concluidas = tarefas.filter(t => t.concluida).length
+
+  // ─── TELA ──────────
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <h1 className={styles.titulo}>⚡ Aura-Tasks</h1>
+        <p className={styles.subtitulo}>A IA categoriza e estima o tempo para você</p>
+        {total > 0 && (
+          <div className={styles.progresso}>
+            <div
+              className={styles.progressoBarra}
+              style={{ width: `${(concluidas / total) * 100}%` }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+        )}
+        {total > 0 && (
+          <p className={styles.progressoTexto}>{concluidas} de {total} concluídas</p>
+        )}
+      </header>
+
+      <section className={styles.inputSection}>
+        <div className={styles.inputWrapper}>
+          <input
+            className={styles.input}
+            type="text"
+            placeholder="Ex: Estudar para a prova de banco de dados..."
+            value={titulo}
+            onChange={e => setTitulo(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && adicionarTarefa()}
+            disabled={loading}
+          />
+          <button
+            className={styles.botao}
+            onClick={adicionarTarefa}
+            disabled={loading}
           >
-            Documentation
-          </a>
+            {loading ? '⏳ Analisando...' : '+ Adicionar'}
+          </button>
         </div>
-      </main>
-    </div>
-  );
+        {erro && <p className={styles.erro}>{erro}</p>}
+        {loading && (
+          <p className={styles.dica}>
+            🤖 A IA está categorizando e estimando o tempo da sua tarefa...
+          </p>
+        )}
+      </section>
+
+      {categoriasPresentes.length > 1 && (
+        <div className={styles.filtros}>
+          {categoriasPresentes.map(cat => (
+            <button
+              key={cat}
+              className={`${styles.filtroBtn} ${filtro === cat ? styles.filtroBtnAtivo : ''}`}
+              onClick={() => setFiltro(cat)}
+            >
+              {cat !== 'Todas' && CATEGORIAS[cat]?.emoji} {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <section className={styles.lista}>
+        {carregando ? (
+          <p className={styles.vazio}>Carregando tarefas...</p>
+        ) : tarefasFiltradas.length === 0 ? (
+          <p className={styles.vazio}>
+            {filtro === 'Todas'
+              ? 'Nenhuma tarefa ainda. Adicione sua primeira acima! 🚀'
+              : `Nenhuma tarefa em "${filtro}".`}
+          </p>
+        ) : (
+          tarefasFiltradas.map(tarefa => {
+            const info = CATEGORIAS[tarefa.categoria] || CATEGORIAS['Outros']
+            return (
+              <div
+                key={tarefa.id}
+                className={`${styles.card} ${tarefa.concluida ? styles.cardConcluida : ''}`}
+              >
+                <button
+                  className={styles.checkbox}
+                  onClick={() => toggleConcluida(tarefa.id, tarefa.concluida)}
+                >
+                  {tarefa.concluida ? '✅' : '⬜'}
+                </button>
+
+                <div className={styles.cardInfo}>
+                  <p className={`${styles.cardTitulo} ${tarefa.concluida ? styles.cardTituloConcluido : ''}`}>
+                    {tarefa.titulo}
+                  </p>
+                  <div className={styles.cardMeta}>
+                    <span
+                      className={styles.tag}
+                      style={{ background: info.bg, color: info.cor }}
+                    >
+                      {info.emoji} {tarefa.categoria}
+                    </span>
+                    <span className={styles.tempo}>⏱ {tarefa.tempo_estimado}</span>
+                  </div>
+                </div>
+
+                <button
+                  className={styles.deletar}
+                  onClick={() => deletarTarefa(tarefa.id)}
+                >
+                  🗑
+                </button>
+              </div>
+            )
+          })
+        )}
+      </section>
+    </main>
+  )
 }
